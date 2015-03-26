@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<document>
+
+  <conf> 
+	<linksNo>3</linksNo> 
+	<jointsNo>3</jointsNo>
+	<legsNo>4</legsNo>
+  </conf>
+
+ <Part0 name="BASE" length="0.5050" width="0.3700"></Part0>
+
+ <Part1 name="HIP" length="0.0685"></Part1>
+ 
+ <Part2 name="THIGH" length="0.200"></Part2>
+ 
+ <Part3 name="SHANK" length="0.235"></Part3>
+ 
+  <parameters>
+    <Poczatkowe x="25.50" y="-18.5" z="0.0"></Poczatkowe>
+    <Joint0 x="0" z="0" alfa="90" gamma="-90"></Joint0>
+    <Joint1 x="7.92" z="0" alfa="90" gamma="0"></Joint1>
+    <Joint2 x="20" z="0" alfa="180" gamma="0"></Joint2>
+    <Leg1 x="0" y="0" gamma="0"></Leg1>
+    <Leg2 x="-50.5" y="0" gamma="0"></Leg2>
+    <Leg3 x="-51.0" y="37" gamma="180"></Leg3>
+    <Leg4 x="-0.5" y="37" gamma="180"></Leg4>
+  </parameters>
+  
+
+</document>
