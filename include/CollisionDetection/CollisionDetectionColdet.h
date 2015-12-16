@@ -1,7 +1,10 @@
-/** @file CollisionDetectionColdet.h
- *
- * implementation - CollisionDetectionColdet
- */
+
+/**********************************************************
+*	
+*		author: Tomasz Augustyn
+* 
+**********************************************************/
+
 #ifndef COLLISIONDETECTIONCOLDET_H_INCLUDED
 #define COLLISIONDETECTIONCOLDET_H_INCLUDED
 
@@ -36,8 +39,9 @@ class CollisionDetectionColdet : public coldet::CollisionDetection {
 			COXA1, COXA2, COXA3, COXA4,//1,2,3,4 
 			FEMUR1, FEMUR2, FEMUR3, FEMUR4,// 5,6,7,8
 			VITULUS1, VITULUS2, VITULUS3, VITULUS4, //9,10,11,12
-		};
 
+
+		};
         /// Pointer
         typedef std::unique_ptr<CollisionDetectionColdet> Ptr;
 
@@ -55,6 +59,7 @@ class CollisionDetectionColdet : public coldet::CollisionDetection {
 			}
 			else
 			{
+                std::cout << "Configuration...\n";
 				jointsNo=std::stoi(config.FirstChildElement("document")->FirstChildElement("conf")->FirstChildElement("jointsNo")->GetText());
 				legsNo=std::stoi(config.FirstChildElement("document")->FirstChildElement("conf")->FirstChildElement("legsNo")->GetText());
 
@@ -62,51 +67,58 @@ class CollisionDetectionColdet : public coldet::CollisionDetection {
 				std::string param_str;
 				tinyxml2::XMLElement * element;
 
-				//rezerwacja pamieci dla konkretnej liczby elementow wektora
-				nazwy_czesci.reserve(jointsNo+1);
-				links_lengths.reserve(jointsNo);
-				polozenie_pocz.reserve(3);
-				joint0.reserve(4);
-				joint1.reserve(4);
-				joint2.reserve(4);
-				Leg.reserve(legsNo);
+				/// Memory allocation for the fixed number of vector elements
+				nazwy_czesci.resize(jointsNo+1);
+				links_lengths.resize(jointsNo);
+				polozenie_pocz.resize(3);
+				joint0.resize(4);
+				joint1.resize(4);
+				joint2.resize(4);
+				Leg.resize(legsNo);
 
+				/// Loading name and the dimensions of the platform (corpus)
 				std::string parName = "Part0";
 				element =(config.FirstChildElement("document")->FirstChildElement(parName.c_str()));
-				nazwy_czesci[0]=element->Attribute("name");
+                nazwy_czesci.push_back(element->Attribute("name"));
 				element->QueryDoubleAttribute("length", &param); platform_length = param;
 				element->QueryDoubleAttribute("width", &param); platform_width = param;
 
+				/// Loading names and the dimensions of the following robot's parts
 				for(int i=1; i<jointsNo+1; i++){
 					parName = "Part" + std::to_string(i);
 					element =(config.FirstChildElement("document")->FirstChildElement(parName.c_str()));
-					nazwy_czesci[i]=element->Attribute("name");
+                    nazwy_czesci.push_back(element->Attribute("name"));
 					element->QueryDoubleAttribute("length", &param);  links_lengths[i-1] = param;
 				}
 				
+				/// Loading the initial parameters which indicates the place where the first leg is being drawn
 				element=config.FirstChildElement("document")->FirstChildElement("parameters")->FirstChildElement("Poczatkowe");
 				element->QueryDoubleAttribute("x", &param);  polozenie_pocz[0] = param;
 				element->QueryDoubleAttribute("y", &param);  polozenie_pocz[1] = param;
 				element->QueryDoubleAttribute("z", &param);  polozenie_pocz[2] = param;
 
+				/// Transformations of the first joint
 				element=config.FirstChildElement("document")->FirstChildElement("parameters")->FirstChildElement("Joint0");
 				element->QueryDoubleAttribute("x", &param);  joint0[0] = param;
 				element->QueryDoubleAttribute("z", &param);  joint0[1] = param;
 				element->QueryDoubleAttribute("alfa", &param);  joint0[2] = param;
 				element->QueryDoubleAttribute("gamma", &param);  joint0[3] = param;
 
+				/// Transformations of the second joint
 				element=config.FirstChildElement("document")->FirstChildElement("parameters")->FirstChildElement("Joint1");
 				element->QueryDoubleAttribute("x", &param);  joint1[0] = param;
 				element->QueryDoubleAttribute("z", &param);  joint1[1] = param;
 				element->QueryDoubleAttribute("alfa", &param);  joint1[2] = param;
 				element->QueryDoubleAttribute("gamma", &param);  joint1[3] = param;
 
+				/// Transformations of the third joint
 				element=config.FirstChildElement("document")->FirstChildElement("parameters")->FirstChildElement("Joint2");
 				element->QueryDoubleAttribute("x", &param);  joint2[0] = param;
 				element->QueryDoubleAttribute("z", &param);  joint2[1] = param;
 				element->QueryDoubleAttribute("alfa", &param);  joint2[2] = param;
 				element->QueryDoubleAttribute("gamma", &param);  joint2[3] = param;
 
+				/// Loading positions of the following legs in relation to the initial position
 				for(int i=0; i<legsNo; i++){
 
 					parName = "Leg" + std::to_string(i+1);
@@ -116,20 +128,23 @@ class CollisionDetectionColdet : public coldet::CollisionDetection {
 					element->QueryDoubleAttribute("gamma", &param);  Leg[i][2] = param;
 				}
 
-				std::cout << nazwy_czesci[0] << " length is: " << platform_length << " and width is: " << platform_width <<"\n";
-				for(int i=1; i<jointsNo+1; i++)
-				std::cout << nazwy_czesci[i] << " length is: " << links_lengths[i-1] <<"\n";
 
+                std::cout << nazwy_czesci.front() << " length is: " << platform_length << " and width is: " << platform_width <<"\n";
+                //for(size_t i=1; i<nazwy_czesci.size()-1; i++)
+                //    std::cout << nazwy_czesci[i] << " length is: " << links_lengths[i-1] <<"\n";
+                std::cout << "Configuration done.\n";
 			}
 
-			// ladowanie modelu robota StarlETH. a,b,c,d przyjmuja wartosc '1' jezeli czesci sa zaladowane poprawnie
+			/// Loading robot's parts from 3DS model, a,b,c,d variables takes '1' if the part is loaded correctly
 			char a,b,c,d;
+            std::cout << "Load model...";
 			a=robot_model.ObjLoad("../../resources/StarlETH_Model/corpus.3ds");
 			b=robot_model.ObjLoad("../../resources/StarlETH_Model/coxa.3ds");
 			c=robot_model.ObjLoad("../../resources/StarlETH_Model/femur.3ds");
 			d=robot_model.ObjLoad("../../resources/StarlETH_Model/vitulus.3ds");
+            std::cout << "done.\n";
 
-
+			/// Creating collision models depending on the number of robot's legs (assuming that each leg has 3 links)
 			for (int i=0;i<3*legsNo+1;i++) {
 				CollisionModel3D* tmp = newCollisionModel3D();
 				meshModel.push_back(tmp);
@@ -167,7 +182,7 @@ class CollisionDetectionColdet : public coldet::CollisionDetection {
 		void initCollisionModel(uint_fast8_t objectNo, CollisionModel3D& model);
 		/// initialize collision models
 		void CollisionModels(void);
-		/// initialize GL lists
+		/// initialize GLLists
 		void structPlatform(void);
 		void structCoxa(void);
 		void structFemur(void);
@@ -179,7 +194,7 @@ class CollisionDetectionColdet : public coldet::CollisionDetection {
 
 		void copyTable(coldet::Mat34& src, float * dest) const;
 		void DrawRobot(const coldet::Mat34& pose, const std::vector<coldet::float_type>& config) const;
-		std::vector<CollisionModel3D*> meshModel;  /// model 3DS
+		std::vector<CollisionModel3D*> meshModel;  /// 3DS model
 		CObjects3DS robot_model;
 
 		std::vector<std::string> nazwy_czesci;   /// [0]- Platform,  [1]- Link0,  [2]- Link1,  [3]- Link2

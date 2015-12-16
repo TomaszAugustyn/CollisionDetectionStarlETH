@@ -1,5 +1,11 @@
 // Main.cpp : Defines the entry point for the console application.
 
+/**********************************************************
+*		CollisionDetectionColdet Demo
+*		author: Tomasz Augustyn
+* 
+**********************************************************/
+
 #include "../Defs/defs.h"
 #include <thread>
 #include <vector>
@@ -10,11 +16,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "../include/CollisionDetection/CollisionDetectionColdet.h"
+#include <chrono>
+#include <ctime>
 
 /**********************************************************
  * VARIABLES DECLARATION
  *********************************************************/
-
 
 // The width and height of your window, change them as you like
 int screen_width=1024;
@@ -26,31 +33,34 @@ double rotation_z=0;
 double translation_x=0;
 double translation_y=0;
 double translation_z=0;
+
 // Flag for rendering as lines or filled polygons
 int filling=1; //0=OFF 1=ON
 
+
 CollisionDetection* robot_structure;
-bool czy_jest_kolizja; ///bedzie przyjmowala wartosc zwracana przez metoda CheckCollision - 1 -> sa kolije,  0->brak kolizji
-std::vector<coldet::float_type> config(12, 0); ///pozycje serwonapedow nog robota
-std::vector<bool> collision_table(13);  ///tablica kolizji, jej elementy przyjmuja wartosc '1' jezeli odpowiadajaca jej czesc robota koliduje. [0] -> corpus, [1-4] -> coxa1-4,  [5-8] -> femur1-4,   [9-12] -> vitulus1-4
-short int wybor_nogi=0;  //wybor nogi do sterowania pozycjami jej serownapedow w openGL'u
+bool czy_jest_kolizja;		/// a variable that takes a value returned by CheckCollision method (true - collision occured, false - no collisions)
+std::vector<coldet::float_type> config(12, 0);  /// Robot legs servomotors' positions
+std::vector<bool> collision_table(13);  /// Collision table, its elements take 'true' as a value if the corresponding robot part is in a collision state.  [0] -> corpus, [1-6] -> coxa1-6,  [7-12] -> femur1-6,   [13-18] -> vitulus1-6
+short int wybor_nogi=0;  //// Leg selection for the purpose of changing servomotors' positions in OpenGL
 
 coldet::Mat34 pose;
 std::vector<coldet::float_type> set_pose(6); // x="0" y="0" z="0.0" alfa="0.0" beta="0.0" gamma="0.0"
 
+
 GLfloat light_position[4] =
 {
-    0.0, 5.0, 2.0, 0.0   // 0.0, 5.0, 2.0, 0.0
+    0.0, 5.0, 2.0, 0.0
 };
 
-GLfloat light_rotatex = -10.0;  //-10
+GLfloat light_rotatex = -10.0;
 GLfloat light_rotatey = 90.0;    //0, 90
 
-// katy obrotu obiektu
+/// object rotation angles during mouse operation (dragging)
 GLfloat rotatex = 0.0;
 GLfloat rotatey = 0.0;
 
-// rozmiary bryly obcinania
+// Defining Scissor Box size
 const GLdouble left1 = -2.0;
 const GLdouble right1 = 2.0;
 const GLdouble bottom = -2.0;
@@ -58,13 +68,13 @@ const GLdouble top = 2.0;
 const GLdouble near = 3.0;
 const GLdouble far = 7.0;
 
-// wskaznik nacisniecia lewego przycisku myszki
+// Left mouse button press indicator
 int button_state = GLUT_UP;
 
-// polozenie kursora myszki
+// Position of mouse cursor
 int button_x, button_y;
 
-// wspolczynnik skalowania
+// Scaling coefficient
 GLfloat scale = 1.0;
 
 /**********************************************************
@@ -76,53 +86,56 @@ GLfloat scale = 1.0;
 
 void init(void)
 {
-    glClearColor(0.951, 0.12, 0.22, 0.7); // This clear the background color to black  0.951, 0.12, 0.22, 0.7
-    glShadeModel(GL_SMOOTH); // Type of shading for the polygons
+    glClearColor(1.0, 1.0, 1.0, 1.0); /// This clear the background color to black  0.0, 0.5, 0.2, 0.0    1.056, 0.768, 0.312, 0.0,   0.951, 0.12, 0.22, 0.7
+    glShadeModel(GL_SMOOTH); /// Type of shading for the polygons
    	
-    // Viewport transformation
+    /// Viewport transformation
     glViewport(0,0,screen_width,screen_height);  
 
-    // Projection transformation
-    glMatrixMode(GL_PROJECTION); // Specifies which matrix stack is the target for matrix operations 
-    glLoadIdentity(); // We initialize the projection matrix as identity
+    /// Projection transformation
+    glMatrixMode(GL_PROJECTION); /// Specifies which matrix stack is the target for matrix operations 
+    glLoadIdentity(); /// We initialize the projection matrix as identity
     gluPerspective(45.0f,(GLfloat)screen_width/(GLfloat)screen_height,10.0f,10000.0f); // We define the "viewing volume"
    
-    glEnable(GL_DEPTH_TEST); // We enable the depth test (also called z buffer)
-    glPolygonMode (GL_FRONT_AND_BACK, GL_FILL); // GL_FILL-> Polygon rasterization mode (polygon filled),  GL_LINE-> (not filled) filling=0;
+    glEnable(GL_DEPTH_TEST); /// We enable the depth test (also called Z buffer)
+    glPolygonMode (GL_FRONT_AND_BACK, GL_FILL); /// GL_FILL-> Polygon rasterization mode (polygon filled),  GL_LINE-> (not filled) filling=0;
 	glEnable(GL_COLOR_MATERIAL);
 	glEnable(GL_DITHER);
 
+	/// Lighting enabled
 	glEnable(GL_DEPTH_BUFFER_BIT);
     glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
 
-	//konfiguracja serwonapedow
-	// pierwszy wezel
+
+	/// Configuration for robot thighs' servomotors
 	config[0]=1.57;
 	config[3]=-1.57;
 	config[6]=1.57;
 	config[9]=-1.57;
+	
+	
 
-	//drugi wezel
+	/// Configuration for robot calves' servomotors
 	config[1]=-0.65;  //0.785
 	config[4]=0.65;
 	config[7]=-0.65;
 	config[10]=0.65;
+	
+	
 
-	//trzeci wezel
 	config[2]=-0.82;
 	config[5]=0.82;
 	config[8]=-0.82;
 	config[11]=0.82;
 
-
-	//Konfiguracja pozycji robota, ktora pozniej w funkcji display zamieniana jest na macierz transformacji
+	/// Robot's position configuration
 	set_pose[0]=0.0;				//x
 	set_pose[1]=5.0;				//y
 	set_pose[2]=0.0;				//z
 	set_pose[3]=30;					//alfa
 	set_pose[4]=50;					//beta
-	set_pose[5]=0;					//gamma 
+	set_pose[5]=0;					//gamma  
 	
 }
 
@@ -136,17 +149,18 @@ void init(void)
 
 void resize (int width, int height)
 {
-    screen_width=width;			// We obtain the new screen width values and store it
-    screen_height=height;		// Height value
+    screen_width=width;		// We obtain the new screen width values and store it
+    screen_height=height;	// Height value
 
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	// We clear both the color and the depth buffer so to draw the next frame
     glViewport(0,0,screen_width,screen_height);				// Viewport transformation
 
     glMatrixMode(GL_PROJECTION);	// Projection transformation
     glLoadIdentity();				// We initialize the projection matrix as identity
+
     gluPerspective(45.0f,(GLfloat)screen_width/(GLfloat)screen_height,10.0f,10000.0f);
 
-    glutPostRedisplay ();			// This command redraw the scene (it calls the same routine of glutDisplayFunc)
+    glutPostRedisplay (); // This command redraw the scene (it calls the same routine of glutDisplayFunc)
 }
 
 /**********************************************************
@@ -173,6 +187,8 @@ void keyboard (unsigned char key, int x, int y)
                 filling=0;
             }
         break;
+
+		/// Translation in x, y, z axes
 		case '.':
 			translation_z = translation_z + 0.5;
 		break;
@@ -191,6 +207,8 @@ void keyboard (unsigned char key, int x, int y)
 		case 'l': case 'L':
 			translation_y = translation_y - 0.5;
 		break;
+
+		/// Leg selection for purpose of changing servomotors' positions
 		case '1':
 			wybor_nogi=1;
 		break;
@@ -203,15 +221,19 @@ void keyboard (unsigned char key, int x, int y)
 		case '4':
 			wybor_nogi=4;
 		break;
-		case '5':
-			wybor_nogi=5;
-		break;
-		case '6':
-			wybor_nogi=6;
-		break;
+		
+		
+		
+		
+		
+		
+
+		/// Disables leg selection
 		case '0':
 			wybor_nogi=0;
 		break;
+
+		/// 'q' and 'a' changes hip's servomotor's position for the following legs
 		case 'q': case 'Q':
 			if(wybor_nogi==1)
 				config[2]=config[2]+0.02;
@@ -221,10 +243,10 @@ void keyboard (unsigned char key, int x, int y)
 				config[8]=config[8]+0.02;
 			else if(wybor_nogi==4)
 				config[11]=config[11]+0.02;
-			else if(wybor_nogi==5)
-				config[14]=config[14]+0.02;
-			else if(wybor_nogi==6)
-				config[17]=config[17]+0.02;
+			
+			
+			
+			
 		break;
 
 		case 'a': case 'A':
@@ -236,12 +258,13 @@ void keyboard (unsigned char key, int x, int y)
 				config[8]=config[8]-0.02;
 			else if(wybor_nogi==4)
 				config[11]=config[11]-0.02;
-			else if(wybor_nogi==5)
-				config[14]=config[14]-0.02;
-			else if(wybor_nogi==6)
-				config[17]=config[17]-0.02;
+			
+			
+			
+			
 		break;
 
+		/// 'w' and 's' changes thigh's servomotor's position for the following legs
 		case 'w': case 'W':
 			if(wybor_nogi==1)
 				config[1]=config[1]+0.02;
@@ -251,10 +274,10 @@ void keyboard (unsigned char key, int x, int y)
 				config[7]=config[7]+0.02;
 			else if(wybor_nogi==4)
 				config[10]=config[10]+0.02;
-			else if(wybor_nogi==5)
-				config[13]=config[13]+0.02;
-			else if(wybor_nogi==6)
-				config[16]=config[16]+0.02;
+			
+			
+			
+				
 		break;
 
 		case 's': case 'S':
@@ -266,12 +289,13 @@ void keyboard (unsigned char key, int x, int y)
 				config[7]=config[7]-0.02;
 			else if(wybor_nogi==4)
 				config[10]=config[10]-0.02;
-			else if(wybor_nogi==5)
-				config[13]=config[13]-0.02;
-			else if(wybor_nogi==6)
-				config[16]=config[16]-0.02;
+			
+			
+			
+			
 		break;
 
+		/// 'e' and 'd' changes calf's servomotor's position for the following legs
 		case 'e': case 'E':
 			if(wybor_nogi==1)
 				config[0]=config[0]+0.02;
@@ -281,10 +305,10 @@ void keyboard (unsigned char key, int x, int y)
 				config[6]=config[6]+0.02;
 			else if(wybor_nogi==4)
 				config[9]=config[9]+0.02;
-			else if(wybor_nogi==5)
-				config[12]=config[12]+0.02;
-			else if(wybor_nogi==6)
-				config[15]=config[15]+0.02;
+			
+			
+			
+			
 		break;
 
 		case 'd': case 'D':
@@ -296,19 +320,210 @@ void keyboard (unsigned char key, int x, int y)
 				config[6]=config[6]-0.02;
 			else if(wybor_nogi==4)
 				config[9]=config[9]-0.02;
-			else if(wybor_nogi==5)
-				config[12]=config[12]-0.02;
-			else if(wybor_nogi==6)
-				config[15]=config[15]-0.02;
+			
+			
+			
+			
 		break;
 
+		/// Displays collision table in command line
 		case 'z': case 'Z':
 			std::cout<<czy_jest_kolizja<<"\n";
 			for (int i=0; i<13; i++)
 				std::cout <<collision_table[i];
-				std::cout<<"\n";
+			std::cout<<"\n";
+
 		break;
 
+		/// Specific collision-free robot configuration
+		case 'c': case 'C':
+			for(int i=0; i<18; i++)
+				config[i]=-0.75;
+
+				/// thighs
+				config[1]=0.8;
+				config[4]=0.8;
+				config[7]=0.8;
+				config[10]=0.8;
+				
+				
+
+				/// calves
+				config[2]=-2.3;
+				config[5]=-2.3;
+				config[8]=-2.3;
+				config[11]=-2.3;
+				
+				
+
+		break;
+
+				/// Robot configuration with 3 collisions
+				case 'v': case 'V':
+			for(int i=0; i<12; i++)
+				config[i]=-0.85;
+				
+				/// thighs
+				config[1]=0.8;
+				config[4]=0.8;
+				config[7]=0.8;
+				config[10]=0.8;
+				
+
+				/// calves
+				config[2]=-2.3;
+				config[5]=-2.3;
+				config[8]=-2.3;
+				config[11]=-2.3;
+				
+				
+
+				config[9]=-0.76;
+			
+				config[6]=-0.75;
+				
+
+		break;
+
+				/// Robot configuration with 7 collisions
+				case 'b': case 'B':
+			for(int i=0; i<12; i++)
+				config[i]=-0.85;
+				
+				/// thighs
+				config[1]=0.8;
+				config[4]=0.8;
+				config[7]=0.8;
+				config[10]=0.8;
+				
+
+				/// calves
+				config[2]=-2.3;
+				config[5]=-2.3;
+				config[8]=-2.3;
+				config[11]=-2.3;
+				
+				
+
+				config[9]=-0.76;
+				
+				config[6]=-0.93;
+				
+
+		break;
+
+
+			/// Robot configuration with 9 collisions
+			case 'n': case 'N':
+			for(int i=0; i<12; i++)
+				config[i]=-0.90;
+				
+			/// thighs
+			config[1]=0.8;
+			config[4]=0.8;
+			config[7]=0.8;
+			config[10]=0.8;
+			
+			
+
+			/// calves
+			config[2]=-2.3;
+			config[5]=-2.3;
+			config[8]=-2.3;
+			config[11]=-2.3;
+			
+			
+
+			
+
+		break;
+
+			/// Robot configuration with 13 collisions
+			case 'm': case 'M':
+			for(int i=0; i<12; i++)
+				config[i]=-0.90;
+				
+			/// thighs
+			config[1]=0.8;
+			config[4]=0.8;
+			config[7]=0.8;
+			config[10]=0.8;
+			
+			
+
+			/// calves
+			config[2]=-2.3;
+			config[5]=-2.3;
+			config[8]=-2.3;
+			config[11]=-2.3;
+			
+			
+
+			
+			config[0]=0.72;
+
+		break;
+
+			/// Robot configuration with 16 collisions
+			case '7':
+			for(int i=0; i<12; i++)
+				config[i]=-0.90;
+				
+			/// thighs
+			config[1]=0.8;
+			config[4]=0.8;
+			config[7]=0.8;
+			config[10]=0.8;
+			
+			
+
+			/// calves
+			config[2]=-2.3;
+			config[11]=-2.3;
+			
+
+			
+			config[0]=0.72;
+
+			config[5]=-2.72;
+			config[8]=-2.92;
+			
+
+		break;
+
+			/// Robot configuration with 19 collisions
+			case '8':
+			for(int i=0; i<12; i++)
+				config[i]=-0.90;
+				
+			/// thighs
+			config[1]=0.8;
+			config[4]=0.8;
+			config[7]=0.8;
+			config[10]=0.8;
+			
+			
+
+			/// calves
+			config[2]=-2.3;
+			config[11]=-2.3;
+			
+
+			config[5]=-2.88;
+			config[8]=-2.92;
+			
+
+			config[0]=1.32;
+			config[3]=-1.32;
+			config[6]=-1.57;
+			config[9]=-1.57;
+			
+			
+
+		break;
+
+
+		/// Change of the light angle of incidence in 'x' and 'y' axes
 		case 't': case 'T':
 			light_rotatex = light_rotatex + 5.0;
 		break;
@@ -357,10 +572,10 @@ void MouseButton( int button, int state, int x, int y )
 {
     if( button == GLUT_LEFT_BUTTON )
     {
-        // zapamietanie stanu lewego przycisku myszki
+        /// remembers the state of left mouse button
         button_state = state;
         
-        // zapamietanie polozenia kursora myszki
+        /// remembers the position of mouse cursor
         if( state == GLUT_DOWN )
         {
             button_x = x;
@@ -369,7 +584,7 @@ void MouseButton( int button, int state, int x, int y )
     }
 }
 
-// obsluga ruchu kursora myszki
+/// Function responsible for the motion of mouse cursor
 void MouseMotion( int x, int y )
 {
     if( button_state == GLUT_DOWN )
@@ -392,9 +607,9 @@ void MouseMotion( int x, int y )
 
 void display(void)
 {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // This clear the background color to dark blue
-    glMatrixMode(GL_MODELVIEW); // Modeling transformation
-    glLoadIdentity(); // Initialize the model matrix as identity
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		/// This clear the background color to dark blue
+    glMatrixMode(GL_MODELVIEW);		/// Modeling transformation
+    glLoadIdentity();	/// Initialize the model matrix as identity
     
 	glTranslatef(0,0, -28.0); // We move the object forward (the model matrix is multiplied by the translation matrix)
 
@@ -402,7 +617,7 @@ void display(void)
 	if (rotation_y > 359) rotation_y = 0;
 	if (rotation_z > 359) rotation_z = 0;
 
-    glRotatef(rotation_x,1.0,0.0,0.0); // Rotations of the object (the model matrix is multiplied by the rotation matrices)
+    glRotatef(rotation_x,1.0,0.0,0.0);	/// Rotations of the object (the model matrix is multiplied by the rotation matrices)
     glRotatef(rotation_y,0.0,1.0,0.0);
     glRotatef(rotation_z,0.0,0.0,1.0);
 	glTranslatef(translation_x, 0.0, 0.0);
@@ -411,27 +626,27 @@ void display(void)
 
 	glEnable(GL_NORMALIZE);
 
-	// obroty obiektu
+	// rotation of the object using mouse
     glRotatef( rotatex, 1.0, 0, 0 );
     glRotatef( rotatey, 0, 1.0, 0 );
 
 	glPushMatrix();
-    // macierz modelowania = macierz jednostkowa
-    glLoadIdentity();
+    glLoadIdentity();     /// Modeling matrix = Identity matrix
     
-    // obroty kierunku zrodla swiatla
+    /// rotations of the light sources
     glRotatef(light_rotatex, 1.0, 0, 0 );
     glRotatef(light_rotatey, 0, 1.0, 0 );
     
-    // ustalenie kierunku zrodla swiatla
+    /// setting the direction of the light source
     glLightfv( GL_LIGHT0, GL_POSITION, light_position );
-    // przywrocenie pierwotnej macierzy modelowania
-    glPopMatrix(); 
 
-	//pose = coldet::Quaternion(set_pose[0], set_pose[1], set_pose[2], set_pose[3])* coldet::Vec3(set_pose[4], set_pose[5], set_pose[6]);
+    glPopMatrix();     /// Re-establishment of the primary modeling matrix
+
+	//pose = coldet::Quaternion(set_pose[0], set_pose[1], set_pose[2], set_pose[3])* coldet::Vec3(set_pose[4], set_pose[5], set_pose[6]);	
 	pose = coldet::Vec3(set_pose[0], set_pose[1], set_pose[2])* Eigen::AngleAxisd (set_pose[3]*M_PI/180, Eigen::Vector3d::UnitX()) * Eigen::AngleAxisd (set_pose[4]*M_PI/180, Eigen::Vector3d::UnitY()) * Eigen::AngleAxisd (set_pose[5]*M_PI/180, Eigen::Vector3d::UnitZ());
 	czy_jest_kolizja=robot_structure->checkCollision (pose, config, collision_table);
 	robot_structure->GLDrawRobot (pose, config, collision_table);
+
 
     glFlush(); // This force the execution of OpenGL commands
     glutSwapBuffers(); // In double buffered mode we invert the positions of the visible buffer and the writing buffer
@@ -450,9 +665,9 @@ int main(int argc, char **argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(screen_width,screen_height);
     glutInitWindowPosition(400,200);
-    glutCreateWindow("Model robota StarlETH");    
-	robot_structure = createCollisionDetectionColdet("StarlETH_Model.xml"); // Wczytywanie pliku .xml StarlETH'a, wywolanie konstruktora.
-	init();
+    glutCreateWindow("Model robota StarlETH");
+	robot_structure = createCollisionDetectionColdet("StarlETH_Model.xml");  /// Loading .xml file of Messor II robot, calling the constructor
+	init();		
     glutDisplayFunc(display);
     glutIdleFunc(display);
     glutReshapeFunc (resize);

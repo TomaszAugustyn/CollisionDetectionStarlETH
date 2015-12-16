@@ -1,7 +1,9 @@
-/** @file CollisionDetection.h
- *
- * Point Cloud CollisionDetection interface
- */
+/**********************************************************
+*	
+*		author: Tomasz Augustyn
+* 
+**********************************************************/
+
 #ifndef _COLLISIONDETECTION_H_
 #define _COLLISIONDETECTION_H_
 
@@ -14,6 +16,7 @@
 #include "../include/CollisionDetection/coldet.h"
 #include "../include/CollisionDetection/objects3DS.h"
 #include <GL/glut.h>
+
 
 namespace coldet{
 	//CollisionDetection interface

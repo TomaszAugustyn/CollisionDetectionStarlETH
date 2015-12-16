@@ -49,9 +49,9 @@ void CObjects3DS::Object3DS(int obj_qty, float scale)
 
 char CObjects3DS::ObjLoad(char *p_object_name)
 {
-    if (Load3DS (&object[obj_qty],p_object_name)==0) return(0); //Object loading
-    obj_qty++; // Let's increase the object number and get ready to load another object!
-	return (1); // If all is ok then return 1
+    if (Load3DS (&object[obj_qty],p_object_name)==0) return(0);		//Object loading
+    obj_qty++;		// Let's increase the object number and get ready to load another object!
+	return (1);		// If all is ok then return 1
 }
 
 

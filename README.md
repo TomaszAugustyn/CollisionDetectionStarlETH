@@ -1,2 +1,2 @@
-# CollisionDetectionStarlETH
-Collision Detection module for StarlETH walking robot.
+# CollisionDetection
+Collision detection library for walking robots
